@@ -76,7 +76,7 @@ export default class KVMap {
 			if (r) {
 				if (r[0] instanceof Array) {
 					this.cachedProxys = r[0];
-					r[1] && this.cachedProxys80 = r[1];
+					if (r[1]) this.cachedProxys80 = r[1];
 				} else {
 					this.cachedProxys = r;
 				}

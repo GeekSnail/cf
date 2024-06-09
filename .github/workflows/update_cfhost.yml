@@ -8,7 +8,7 @@ on:
     - cron: "0 * * * *"
   # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
-    #branches: [ "main" ]
+  #  branches: [ "main" ]
     paths-ignore: 
       - '.gitignore'
       - 'package-lock.json'
@@ -22,9 +22,11 @@ on:
 env:
   CF_KV_API: https://api.cloudflare.com/client/v4/accounts/${{secrets.CF_ACCOUNT_ID}}/storage/kv/namespaces/${{secrets.CF_NAMESPACE_ID}}/values
   CF_SCRIPT_API: https://api.cloudflare.com/client/v4/accounts/${{secrets.CF_ACCOUNT_ID}}/workers/scripts
+  CF_PROJECT_API: https://api.cloudflare.com/client/v4/accounts/${{secrets.CF_ACCOUNT_ID}}/pages/projects
   CFHOST: cfhost
   CFHOSTJSON: cfhost.json
   SCRIPT: v2
+  PROJECT: v1
   ENTRY: _worker.js
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
@@ -68,9 +70,9 @@ jobs:
             git commit -m "updated cfhost"
             git push
           else
-            echo "cfhost not update"
+            echo "cfhost not update" >> $GITHUB_STEP_SUMMARY
             if ! git diff --name-only ${{ github.event.before }} ${{ github.event.after }}|grep -v '\.git*' ; then
-              echo "worker code nothing update"
+              echo "worker code nothing update" >> $GITHUB_STEP_SUMMARY
               gh run cancel ${{ github.run_id }}
               gh run watch ${{ github.run_id }}
             fi
@@ -95,11 +97,18 @@ jobs:
           name: cf-worker
           path: dist
           
-      - name: deploy worker script
+      - name: deploy worker, page
         run: |
           [ ! -s "dist/$ENTRY" ] && echo "$ENTRY not found!" && exit;
           curl -X PUT -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" \
             -H 'Content-Type: multipart/form-data' \
             --form "worker.js=@dist/$ENTRY;type=application/javascript+module" \
             --form 'metadata={"main_module":"'$ENTRY'"}' \
-            --url $CF_SCRIPT_API/$SCRIPT/content
+            --url $CF_SCRIPT_API/$SCRIPT/content | tail -n 4 >> $GITHUB_STEP_SUMMARY
+            
+          curl -X PUT -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" \
+            -H 'Content-Type: multipart/form-data' \
+            --form "worker.js=@dist/$ENTRY;type=application/javascript+module" \
+            --form 'branch=test' \
+            --form 'manifest={}' \
+            --url $CF_PROJECT_API/$PROJECT/deployments | tail -n 4 >> $GITHUB_STEP_SUMMARY
