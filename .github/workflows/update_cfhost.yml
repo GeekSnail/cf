@@ -106,7 +106,7 @@ jobs:
             --form 'metadata={"main_module":"'$ENTRY'"}' \
             --url $CF_SCRIPT_API/$SCRIPT/content | tail -n 4 >> $GITHUB_STEP_SUMMARY
             
-          curl -X PUT -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" \
+          curl -X POST -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" \
             -H 'Content-Type: multipart/form-data' \
             --form "worker.js=@dist/$ENTRY;type=application/javascript+module" \
             --form 'branch=test' \
