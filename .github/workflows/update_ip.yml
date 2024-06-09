@@ -5,7 +5,7 @@ name: IP Workflow
 # Controls when the workflow will run
 on:
   schedule:
-    - cron: "0 4 * * *"
+    - cron: "30 3 * * *"
   # Triggers the workflow on push or pull request events but only for the "main" branch
   #push:
   #  branches: [ "main" ]
@@ -80,24 +80,35 @@ jobs:
               -si "$PING_API"|grep location|awk '{print $2}'|tr -d '\n\r'`
             sleep 1
             while true; do
-              echo $measure_url
               r=`curl -A "$UA" -s "$measure_url"`
               case "$r" in
                 *in-progress*)   sleep 1; continue;;
                 #*loss\":0*)      echo "$ip" >> valid_ip.txt; break;;
-                *authorized\":*) echo "$ip" >> ip$port.txt; break;;
-                *cloudflare*)    echo "$ip" >> ip$port.txt; break;;
+                *authorized\":*) echo $ip:$port $measure_url; echo "$ip" >> ip$port.txt; break;;
+                *cloudflare*)    echo $ip:$port $measure_url; echo "$ip" >> ip$port.txt; break;;
                 *)               break;;
               esac
             done
           }
           while IFS= read -r ip; do
-            measure $ip 80
             measure $ip 443
           done < ip.txt
+          while IFS= read -r ip; do
+            measure $ip 80
+          done < ip443.txt
           echo `wc -l ip80.txt` >> $GITHUB_STEP_SUMMARY
           echo `wc -l ip443.txt` >> $GITHUB_STEP_SUMMARY
-
+          
+      - name: update valid ip to server
+        run: |
+          [ -s ip443.txt ] && data=[[$(echo `sed -r 's/^(.*)$/"\1"/' ip443.txt`|tr -s ' ' ',')] || echo 'no valid ip with port 443' && exit 1;
+          [ -s ip80.txt ] && data=$data,[$(echo `sed -r 's/^(.*)$/"\1"/' ip80.txt`|tr -s ' ' ',')]
+          data=$data]
+          curl -X PUT -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" \
+            -d "$data" "$CF_KV_API/$PROXYS" >> $GITHUB_STEP_SUMMARY
+          curl -X PUT -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" \
+            -d "`date +%s%3N`" "$CF_KV_API/$PROXYS_UPDATED"
+      
       - name: upload ip file
         uses: actions/upload-artifact@v4
         with:
@@ -105,13 +116,3 @@ jobs:
           path: |
             ip443.txt
             ip80.txt
-          
-      - name: update valid ip to server
-        run: |
-          [ -s ip443.txt ] && data=[[$(echo `sed -r 's/^(.*)$/"\1"/' ip443.txt`|tr -s ' ' ',')]
-          [ -s ip80.txt ] && data=$data,[$(echo `sed -r 's/^(.*)$/"\1"/' ip80.txt`|tr -s ' ' ',')]]
-          [ -z "$data" ] && echo 'no ip data' && exit;
-          curl -X PUT -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" \
-            -d "$data" "$CF_KV_API/$PROXYS" >> $GITHUB_STEP_SUMMARY
-          curl -X PUT -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" \
-            -d "`date +%s%3N`" "$CF_KV_API/$PROXYS_UPDATED"

@@ -28,7 +28,7 @@ export default class KVMap {
 	//initial entry
 	_proxys; _cfhost;
 	//cache
-	cachedProxys80 = []; cachedProxys443 = [];
+	cachedProxys = []; cachedProxys80 = [];
 	cachedCfhost = []; 
 	//source
 	cfhostFromKV = [];
@@ -44,7 +44,7 @@ export default class KVMap {
 		this.proxy = this.randomProxy;
 	}
 	get proxys() {
-		return { 443: [...this._proxys, ...this.cachedProxys443], 80: [...this._proxys, ...this.cachedProxys80]}
+		return { 443: [...this._proxys, ...this.cachedProxys], 80: [...this._proxys, ...this.cachedProxys80]}
 	}
 	get cfhost() {
 		return [...this._cfhost, ...this.cachedCfhost]
@@ -75,11 +75,10 @@ export default class KVMap {
 		return this.KVOp(this.KEY_PROXYS, 'get').then(r => {
 			if (r) {
 				if (r[0] instanceof Array) {
-					this.cachedProxys443 = r[0];
-					this.cachedProxys80 = r[1];
+					this.cachedProxys = r[0];
+					r[1] && this.cachedProxys80 = r[1];
 				} else {
-					this.cachedProxys443 = r;
-					this.cachedProxys80 = r;
+					this.cachedProxys = r;
 				}
 			}
 			this.proxy = this.randomProxy;
@@ -94,11 +93,12 @@ export default class KVMap {
 			console.log(`${this.KEY_PROXYS} not loaded! try wait 20ms`)
 			await delay(20);
 		}
-		let i = this['cachedProxys'+port].indexOf(host);
+		let key = 'cachedProxys'+ (port==443?'':'80')
+		let i = this[key].indexOf(host);
 		if (i < 0) return;
-		this['cachedProxys'+port].splice(i, 1);
+		this[key].splice(i, 1);
 		this.proxy[port] = randFrom(this.proxys[port]);
-		this.KVOp(this.KEY_PROXYS, 'put', [this.cachedProxys443,this.cachedProxys80])
+		this.KVOp(this.KEY_PROXYS, 'put', [this.cachedProxys,this.cachedProxys80])
 			.then(r => { console.log(`proxy ${host+':'+port} deleted from KV`); });
 	}
 	async tagHost(host) {
