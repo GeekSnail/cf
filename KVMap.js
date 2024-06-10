@@ -162,7 +162,7 @@ export default class KVMap {
 				this[keyCache].push(...rdiff);
 				if (ldiff.length)
 					await this.KVOp(key, 'put', this[keyCache])
-						.then(r => { console.log(`tagged ${ldiff} to KV`); })
+						.then(r => { console.log(`tagged ${key}: ${ldiff} to KV`); })
 				if (rdiff.length)
 					console.log(`received new ${key}: ${rdiff}, ${r.length}(KV) ${this[key].length}(cache)`)
 			} else {

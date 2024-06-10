@@ -301,7 +301,7 @@ async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawCli
 		}).finally(() => {
 			safeCloseWebSocket(webSocket);
 		})
-		remoteSocketToWS(tcpSocket, webSocket, vResponseHeader, null, log);
+		remoteSocketToWS(tcpSocket, webSocket, vResponseHeader, log);
 	}
 	
 	if (kvMap.host.includes(addressRemote) || ! kvMap.cfhost.includes(addressRemote) && ! inCfSubNet(addressRemote)) {
