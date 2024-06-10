@@ -126,11 +126,12 @@ export default class KVMap {
 		}
 		let idx = port == 443 ? 0 : 1
 		let i = this.proxysCache[idx].indexOf(host);
-		if (i < 0) return;
-		this.proxysCache[idx].splice(i, 1);
+		if (i > -1) {
+			this.proxysCache[idx].splice(i, 1);
+			this.KVOp(this.KEY_PROXYS, 'put', this.proxysCache)
+				.then(r => { console.log(`proxy ${host+':'+port} deleted from KV`); });
+		}
 		this.proxy[port] = randFrom(this.proxys[port]);
-		this.KVOp(this.KEY_PROXYS, 'put', this.proxysCache)
-			.then(r => { console.log(`proxy ${host+':'+port} deleted from KV`); });
 	}
 	tagCfhost(host) {
 		this.tag(this.KEY_CFHOST, host);
@@ -167,7 +168,7 @@ export default class KVMap {
 					console.log(`received new ${key}: ${rdiff}, ${r.length}(KV) ${this[key].length}(cache)`)
 			} else {
 				await this.KVOp(key, 'put', this[keyCache])
-					.then(r => { console.log(`tagged ${this[keyCache]} to KV`); })
+					.then(r => { console.log(`tagged ${key}: ${this[keyCache]} to KV`); })
 			}
 			this[keyPutting] = false;
 		}
