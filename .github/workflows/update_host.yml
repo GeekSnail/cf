@@ -52,26 +52,24 @@ jobs:
         name: get cfhost host, merge, backup
         run: |
           merge_backup(){
-            local key=$1 keybak=${1}_bak filename=$1.json
-            local ret=`curl -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" "$CF_KV_API/$key"`
+            local ret=`curl -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" "$CF_KV_API/$1"`
             if [[ "$ret" == *error* ]]; then
               echo $ret;
             elif [ ! -z "$ret" ] && [ ! "$ret" = "[]" ]; then
               echo $ret|tr -d '[]'|sed -r 's/, ?/\n/g' > tmp.txt
-              local bak=`curl -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" "$CF_KV_API/$keybak"`
+              local bak=`curl -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" "$CF_KV_API/$2"`
               if [[ ! "$bak" == *error* ]] && [ ! -z "$bak" ] && [ ! "$bak" = "[]" ]; then
                 echo $bak|tr -d '[]'|sed -r 's/, ?/\n/g' >> tmp.txt
                 ret=`echo $ret$bak|sed 's/\]\[/,/'`
               fi
-              echo `cat $filename`|tr -d '[]'|sed -r 's/, ?/\n/g' >> tmp.txt
-              echo [$(echo `cat tmp.txt|sort -u`|tr -s ' ' ',')] > $filename
-              #echo 'update_cfhost=true' >> $GITHUB_ENV
+              echo `cat $3`|tr -d '[]'|sed -r 's/, ?/\n/g' >> tmp.txt
+              echo [$(echo `cat tmp.txt|sort -u`|tr -s ' ' ',')] > $3
               curl -X PUT -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" \
-                -d "$ret" "$CF_KV_API/$CFHOST_BAK" >> $GITHUB_STEP_SUMMARY
+                -d "$ret" "$CF_KV_API/$2" >> $GITHUB_STEP_SUMMARY
             fi
           }
-          merge_backup $CFHOST
-          merge_backup $HOST
+          merge_backup $CFHOST $CFHOST_BAK $CFHOSTJSON
+          merge_backup $HOST $HOST_BAK $HOSTJSON
           
       - id: s2
         name: check change of cfhost.json, host.json, worker code
