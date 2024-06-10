@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: cfhost.json Workflow
+name: cfhost host Workflow
 
 # Controls when the workflow will run
 on:
@@ -49,7 +49,7 @@ jobs:
           fetch-depth: 0
           
       - id: s1
-        name: get cfhost, merge, backup
+        name: get cfhost host, merge, backup
         run: |
           merge_backup(){
             local key=$1 keybak=${1}_bak filename=$1.json
@@ -74,7 +74,7 @@ jobs:
           merge_backup $HOST
           
       - id: s2
-        name: check change of cfhost.json, worker code
+        name: check change of cfhost.json, host.json, worker code
         env:
           GH_TOKEN: ${{ github.token }}
         run: |          
