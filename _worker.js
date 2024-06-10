@@ -311,7 +311,7 @@ async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawCli
 		if (await remoteSocketToWS(tcpSocket, webSocket, vResponseHeader, log))
 			kvMap.tagHost(addressRemote);
 		else {
-			kvMap.tagcfHost(addressRemote);
+			kvMap.tagCfhost(addressRemote);
 			retry();
 		};
 	} else  {
