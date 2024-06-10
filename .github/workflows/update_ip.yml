@@ -101,7 +101,8 @@ jobs:
           
       - name: update valid ip to server
         run: |
-          [ -s ip443.txt ] && data=[[$(echo `sed -r 's/^(.*)$/"\1"/' ip443.txt`|tr -s ' ' ',')] || echo 'no valid ip with port 443' && exit 1;
+          [ ! -s ip443.txt ] && echo 'no valid ip with port 443' && exit 443;
+          data=[[$(echo `sed -r 's/^(.*)$/"\1"/' ip443.txt`|tr -s ' ' ',')]
           [ -s ip80.txt ] && data=$data,[$(echo `sed -r 's/^(.*)$/"\1"/' ip80.txt`|tr -s ' ' ',')]
           data=$data]
           curl -X PUT -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" \
@@ -109,10 +110,10 @@ jobs:
           curl -X PUT -H "Authorization:Bearer ${{secrets.CF_API_TOKEN}}" \
             -d "`date +%s%3N`" "$CF_KV_API/$PROXYS_UPDATED"
       
-      - name: upload ip file
-        uses: actions/upload-artifact@v4
-        with:
-          name: cfproxys
-          path: |
-            ip443.txt
-            ip80.txt
+      # - name: upload ip file
+        # uses: actions/upload-artifact@v4
+        # with:
+          # name: cfproxys
+          # path: |
+            # ip443.txt
+            # ip80.txt

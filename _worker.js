@@ -2,6 +2,7 @@
 import { connect } from 'cloudflare:sockets';
 import KVMap, { inCfSubNet, randFrom } from './KVMap';
 import cfhost from './cfhost.json';
+import host from './host.json';
 
 if (! Set.prototype.toJSON)
 	Set.prototype.toJSON = function() { return Set.prototype.keys.call(this).toArray() }
@@ -23,7 +24,7 @@ let proxy6 = "2a01:4f8:c2c:123f:64:5:6810:c55a"
 let dohURL = 'https://cloudflare-dns.com/dns-query' // or https://dns.google/dns-query
 //const cfhost = ['cloudflare.com', 'ajax.cloudflare.com', 'community.cloudflare.com', 'cdnjs.cloudflare.com', 'challenges.cloudflare.com', 'time.cloudflare.com', 'performance.radar.cloudflare.com', 'www.cloudflare.com', 'cf-assets.www.cloudflare.com']
 const errorHost = ['26.26.26.2']
-const kvMap = new KVMap({ proxys, cfhost });
+const kvMap = new KVMap({ proxys, cfhost, host });
 
 if (!isValidUUID(userID)) {
 	throw new Error('uuid is invalid');
@@ -47,9 +48,10 @@ export default {
 			if (userID.includes(',')) {
 				userID_Path = userID.split(',')[0];
 			}
+			kvMap.loadHost();
 			kvMap.loadCfhost();
 			kvMap.loadProxys().then(r => proxy = kvMap.proxy);
-			console.log(`fetch() ${kvMap.proxys[443].length}(443) ${kvMap.proxys[80].length}(80), ${kvMap.cfhost.length}`)
+			console.log(`fetch() ${kvMap.proxys[443].length}(443) ${kvMap.proxys[80].length}(80), ${kvMap.cfhost.length}, ${kvMap.host.length}`)
 			const upgradeHeader = request.headers.get('Upgrade');
 			if (!upgradeHeader || upgradeHeader !== 'websocket') {
 				const url = new URL(request.url);
@@ -288,13 +290,12 @@ async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawCli
 	 * Retries connecting to the remote address and port if the Cloudflare socket has no incoming data.
 	 * @returns {Promise<void>} A Promise that resolves when the retry is complete.
 	 */
-	async function retry(hit) {
-		hit || kvMap.tagHost(addressRemote)
+	async function retry() {
 		const tcpSocket = await connectAndWrite(proxy[portRemote] || addressRemote, portRemote)
 		tcpSocket.closed.catch(error => {
 			console.log('retry tcpSocket closed error', error);
-			if (/HTTP|fetch/i.test(error)) {
-				kvMap.deleteProxy(proxy, portRemote)
+			if (/HTTP|fetch/i.test(error) && proxy[portRemote]) {
+				kvMap.deleteProxy(proxy[portRemote], portRemote)
 				proxy = kvMap.proxy;
 			}
 		}).finally(() => {
@@ -302,16 +303,20 @@ async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawCli
 		})
 		remoteSocketToWS(tcpSocket, webSocket, vResponseHeader, null, log);
 	}
-	// if cfhost.has(remote) -> retry proxy
-	// else -> direct connect, if need retry -> push remote to cfhost, retry
-	if (! kvMap.cfhost.includes(addressRemote) && ! inCfSubNet(addressRemote)) {
+	
+	if (kvMap.host.includes(addressRemote) || ! kvMap.cfhost.includes(addressRemote) && ! inCfSubNet(addressRemote)) {
 		const tcpSocket = await connectAndWrite(addressRemote, portRemote);
 		// when remoteSocket is ready, pass to websocket
 		// remote--> ws
-		remoteSocketToWS(tcpSocket, webSocket, vResponseHeader, retry, log);
+		if (await remoteSocketToWS(tcpSocket, webSocket, vResponseHeader, log))
+			kvMap.tagHost(addressRemote);
+		else {
+			kvMap.tagcfHost(addressRemote);
+			retry();
+		};
 	} else  {
 		log(`Hit proxy for ${addressRemote}`)
-		retry(1);
+		retry();
 	}
 }
 
@@ -511,7 +516,7 @@ function processVHeader(vBuffer, userID) {
  * @param {(info: string) => void} log The logging function.
  * @returns {Promise<void>} A Promise that resolves when the conversion is complete.
  */
-async function remoteSocketToWS(remoteSocket, webSocket, vResponseHeader, retry, log) {
+async function remoteSocketToWS(remoteSocket, webSocket, vResponseHeader, log) {
 	// remote--> ws
 	let remoteChunkCount = 0;
 	let chunks = [];
@@ -569,10 +574,11 @@ async function remoteSocketToWS(remoteSocket, webSocket, vResponseHeader, retry,
 	// seems is cf connect socket have error,
 	// 1. Socket.closed will have error
 	// 2. Socket.readable will be close without any data coming
-	if (hasIncomingData === false && retry) {
-		//log(`retry`)
-		retry();
-	}
+	//if (hasIncomingData === false && retry) {
+	// log(`retry`)
+	// retry();
+	//}
+	return hasIncomingData;
 }
 
 /**
