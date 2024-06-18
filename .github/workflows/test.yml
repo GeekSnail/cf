@@ -34,7 +34,7 @@ jobs:
       # Runs a set of commands using the runners shell
       - name: inputs json test
         run: |
-          if [ ! -z ${{ inputs.json }} ]; then
+          if [ ! -z '${{ inputs.json }}' ]; then
             jq --help
             echo '${{ inputs.json }}' | jq .
             echo '${{ inputs.json }}' > test.json
